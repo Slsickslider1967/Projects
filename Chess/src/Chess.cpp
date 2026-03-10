@@ -31,15 +31,19 @@ void InitWhitePieces();
 void InitBlackPieces();
 
 void Inputs(const Event &event, RenderWindow &window);
-void HandleMovement(int BoardX, int boardY);
+void HandleMovement(int BoardX, int BoardY);
 
 void DrawPieces();
 void Draw();
 void DrawBoard();
 void DrawPossibleMoves();
 
-Pieces GetTileInformation(int BoardX, int boardY);
+Pieces GetTileInformation(int BoardX, int BoardY);
 void GetPossibleMoves(Pieces SelectedPiece);
+bool CheckIfTileIsOccupied(int BoardX, int BoardY);
+bool ValidTake(int BoardX, int BoardY);
+void HandleTake(PieceColor color, int BoardX, int BoardY);
+bool IsOnBoard(int BoardX, int BoardY);
 
 int main()
 {
@@ -129,6 +133,12 @@ void HandleMovement(int BoardX, int BoardY)
         }
     }
 
+    if (CheckIfTileIsOccupied(BoardX, BoardY) && !ValidTake(BoardX, BoardY))
+    {
+        validMove = false;
+        return;
+    }
+
     if (!validMove)
     {
         Selected = GetTileInformation(BoardX, BoardY);
@@ -143,6 +153,7 @@ void HandleMovement(int BoardX, int BoardY)
         {
             pieceSet[i].X = BoardX;
             pieceSet[i].Y = BoardY;
+            HandleTake(Selected.Color, BoardX, BoardY);
             break;
         }
     }
@@ -281,20 +292,23 @@ void DrawPossibleMoves()
 {
     for (auto Possbile : PossibleMoves)
     {
-        _ChessWindow.draw(Tiles(50.f + Possbile.X * TileWidth, 50.f + Possbile.Y * TileHeight, TileWidth, TileHeight, Color(255, 255, 0, 120)));
+        if (CheckIfTileIsOccupied(Possbile.X, Possbile.Y) && !ValidTake(Possbile.X, Possbile.Y))
+            _ChessWindow.draw(Tiles(50.f + Possbile.X * TileWidth, 50.f + Possbile.Y * TileHeight, TileWidth, TileHeight, Color(255, 0, 0, 120)));
+        else
+            _ChessWindow.draw(Tiles(50.f + Possbile.X * TileWidth, 50.f + Possbile.Y * TileHeight, TileWidth, TileHeight, Color(255, 255, 0, 120)));
     }
 }
 
 // --Tools and Help--
 
-Pieces GetTileInformation(int BoardX, int boardY)
+Pieces GetTileInformation(int BoardX, int BoardY)
 {
     for (int i = 0; i < 16; i++)
     {
-        if (WhitePieces[i].X == BoardX && WhitePieces[i].Y == boardY)
+        if (WhitePieces[i].X == BoardX && WhitePieces[i].Y == BoardY)
             return WhitePieces[i];
 
-        if (BlackPieces[i].X == BoardX && BlackPieces[i].Y == boardY)
+        if (BlackPieces[i].X == BoardX && BlackPieces[i].Y == BoardY)
             return BlackPieces[i];
     }
 
@@ -309,22 +323,112 @@ void GetPossibleMoves(Pieces SelectedPiece)
     {
     case pawn:
     {
-        int direction = 1;
-        int startRow = 1;
+        int direction = (SelectedPiece.Color == white) ? -1 : 1;
+        int startRow = (SelectedPiece.Color == white) ? 6 : 1;
+        int forwardY = SelectedPiece.Y + direction;
 
-        if (SelectedPiece.Color == white)
+        if (IsOnBoard(SelectedPiece.X, forwardY) && !CheckIfTileIsOccupied(SelectedPiece.X, forwardY))
         {
-            direction = -1;
-            startRow = 6;
+            PossibleMoves.push_back({SelectedPiece.X, forwardY});
+
+            int doubleForwardY = SelectedPiece.Y + 2 * direction;
+            if (SelectedPiece.Y == startRow &&
+                IsOnBoard(SelectedPiece.X, doubleForwardY) &&
+                !CheckIfTileIsOccupied(SelectedPiece.X, doubleForwardY))
+            {
+                PossibleMoves.push_back({SelectedPiece.X, doubleForwardY});
+            }
         }
 
-        PossibleMoves.push_back({SelectedPiece.X, SelectedPiece.Y + direction});
+        int leftX = SelectedPiece.X - 1;
+        int rightX = SelectedPiece.X + 1;
 
-        if (SelectedPiece.Y == startRow)
+        if (IsOnBoard(leftX, forwardY) && ValidTake(leftX, forwardY))
+            PossibleMoves.push_back({leftX, forwardY});
+
+        if (IsOnBoard(rightX, forwardY) && ValidTake(rightX, forwardY))
+            PossibleMoves.push_back({rightX, forwardY});
+
+        break;
+    }
+    case rook:
+    {
+        int directions[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+        for (auto &direction : directions)
         {
-            PossibleMoves.push_back({SelectedPiece.X, SelectedPiece.Y + 2 * direction});
-        }
+            int x = SelectedPiece.X + direction[0];
+            int y = SelectedPiece.Y + direction[1];
 
+            while (IsOnBoard(x, y))
+            {
+                Pieces targetPiece = GetTileInformation(x, y);
+
+                if (targetPiece.X == -1)
+                {
+                    PossibleMoves.push_back({x, y});
+                }
+                else
+                {
+                    if (targetPiece.Color != SelectedPiece.Color)
+                        PossibleMoves.push_back({x, y});
+
+                    break;
+                }
+
+                x += direction[0];
+                y += direction[1];
+            }
+        }
+        break;
+    }
+    case knight:
+    {
+        int moves[8][2] = {{-2, -1}, {-1, -2}, {1, -2}, {2, -1}, {2, 1}, {1, 2}, {-1, 2}, {-2, 1}};
+
+        for (auto &move : moves)
+        {
+            int x = SelectedPiece.X + move[0];
+            int y = SelectedPiece.Y + move[1];
+
+            if (!IsOnBoard(x, y))
+                continue;
+
+            Pieces targetPiece = GetTileInformation(x, y);
+            if (targetPiece.X == -1 || targetPiece.Color != SelectedPiece.Color)
+                PossibleMoves.push_back({x, y});
+        }
+        break;
+    }
+    case bishop:
+    {
+        int directions[4][2] = {{1, 1}, {-1, 1}, {1, -1}, {-1, -1}};
+
+        for (auto &direction : directions)
+        {
+            int x = SelectedPiece.X + direction[0];
+            int y = SelectedPiece.Y + direction[1];
+
+            while (IsOnBoard(x, y))
+            {
+                Pieces targetPiece = GetTileInformation(x, y);
+
+                if (targetPiece.X == -1)
+                {
+                    PossibleMoves.push_back({x, y});
+                }
+                else
+                {
+                    if (targetPiece.Color != SelectedPiece.Color)
+                        PossibleMoves.push_back({x, y});
+
+                    break;
+                }
+
+                x += direction[0];
+                y += direction[1];
+            }
+        }
         break;
     }
     }
@@ -332,6 +436,67 @@ void GetPossibleMoves(Pieces SelectedPiece)
     cout << "Possible moves are:" << endl;
     for (auto Possible : PossibleMoves)
     {
+        if (!IsOnBoard(Possible.X, Possible.Y))
+            continue;
+
         cout << PlayingBoard.x[Possible.X] << ", " << PlayingBoard.y[Possible.Y] << endl;
+    }
+}
+
+bool CheckIfTileIsOccupied(int BoardX, int BoardY)
+{
+    Pieces targetTilePiece = GetTileInformation(BoardX, BoardY);
+    if (targetTilePiece.X != -1)
+    {
+        cout << "Tile is occupied." << endl;
+        return true;
+    }
+    return false;
+}
+
+bool ValidTake(int BoardX, int BoardY)
+{
+    Pieces targetPiece = GetTileInformation(BoardX, BoardY);
+
+    if (targetPiece.X == -1)
+        return false;
+
+    if (targetPiece.Color == Selected.Color)
+        return false;
+
+    if (Selected.PieceType == pawn)
+    {
+        int direction = (Selected.Color == white) ? -1 : 1;
+
+        if (BoardY == Selected.Y + direction &&
+            (BoardX == Selected.X - 1 || BoardX == Selected.X + 1))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
+bool IsOnBoard(int BoardX, int BoardY)
+{
+    return BoardX >= 0 && BoardX < 8 && BoardY >= 0 && BoardY < 8;
+}
+
+void HandleTake(PieceColor color, int BoardX, int BoardY)
+{
+    Pieces* opponentPieces = (color == white) ? BlackPieces : WhitePieces;
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (opponentPieces[i].X == BoardX && opponentPieces[i].Y == BoardY)
+        {
+            opponentPieces[i].X = -1;
+            opponentPieces[i].Y = -1;
+            cout << "Piece taken at " << PlayingBoard.x[BoardX] << ", " << PlayingBoard.y[BoardY] << endl;
+            break;
+        }
     }
 }
