@@ -2,10 +2,17 @@
 
 enum Piece
 {
+    pawn,
     rook,
-    castle,
     knight,
     bishop,
     king,
     queen
+};
+
+struct Pieces
+{
+    Piece PieceType; 
+    int X;
+    int Y;
 };
