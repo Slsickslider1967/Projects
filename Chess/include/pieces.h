@@ -10,9 +10,16 @@ enum Piece
     queen
 };
 
+enum PieceColor
+{
+    white,
+    black
+};
+
 struct Pieces
 {
-    Piece PieceType; 
+    Piece PieceType;
+    PieceColor Color;
     int X;
     int Y;
 };
