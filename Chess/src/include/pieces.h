@@ -20,6 +20,7 @@ struct Pieces
 {
     Piece PieceType;
     PieceColor Color;
+    Texture *PieceTexture;
     int X;
     int Y;
 };

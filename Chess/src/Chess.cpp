@@ -2,8 +2,8 @@
 #include <list>
 #include <SFML/Graphics.hpp>
 
-#include "../include/board.h"
-#include "../include/pieces.h"
+#include "include/board.h"
+#include "include/pieces.h"
 
 using namespace std;
 using namespace sf;
@@ -15,7 +15,7 @@ board PlayingBoard;
 Pieces WhitePieces[16];
 Pieces BlackPieces[16];
 
-Pieces Selected = {pawn, white, -1, -1};
+Pieces Selected = {pawn, white, nullptr, -1, -1};
 list<Tile> PossibleMoves;
 
 const float TileWidth = 122.5f;
@@ -37,6 +37,8 @@ void DrawPieces();
 void Draw();
 void DrawBoard();
 void DrawPossibleMoves();
+
+Texture* LoadPieceTexture(const string& fileName);
 
 Pieces GetTileInformation(int BoardX, int BoardY);
 void GetPossibleMoves(Pieces SelectedPiece);
@@ -120,7 +122,7 @@ void HandleMovement(int BoardX, int BoardY)
     if ((WhiteTurn && Selected.Color != white) || (!WhiteTurn && Selected.Color != black))
     {
         cout << "Not your turn!" << endl;
-        Selected = {pawn, white, -1, -1};
+        Selected = {pawn, white, nullptr, -1, -1};
         return;
     }
 
@@ -165,7 +167,7 @@ void HandleMovement(int BoardX, int BoardY)
 
     WhiteTurn = !WhiteTurn;
 
-    Selected = {pawn, white, -1, -1};
+    Selected = {pawn, white, nullptr, -1, -1};
     PossibleMoves.clear();
 }
 
@@ -179,32 +181,32 @@ void CreateWindow()
 
 void InitWhitePieces()
 {
-    WhitePieces[0] = {rook, white, 0, 7};
-    WhitePieces[1] = {knight, white, 1, 7};
-    WhitePieces[2] = {bishop, white, 2, 7};
-    WhitePieces[3] = {queen, white, 3, 7};
-    WhitePieces[4] = {king, white, 4, 7};
-    WhitePieces[5] = {bishop, white, 5, 7};
-    WhitePieces[6] = {knight, white, 6, 7};
-    WhitePieces[7] = {rook, white, 7, 7};
+    WhitePieces[0] = {rook, white, LoadPieceTexture("white-rook.png"), 0, 7};
+    WhitePieces[1] = {knight, white, LoadPieceTexture("white-knight.png"), 1, 7};
+    WhitePieces[2] = {bishop, white, LoadPieceTexture("white-bishop.png"), 2, 7};
+    WhitePieces[3] = {queen, white, LoadPieceTexture("white-queen.png"), 3, 7};
+    WhitePieces[4] = {king, white, LoadPieceTexture("white-king.png"), 4, 7};
+    WhitePieces[5] = {bishop, white, LoadPieceTexture("white-bishop.png"), 5, 7};
+    WhitePieces[6] = {knight, white, LoadPieceTexture("white-knight.png"), 6, 7};
+    WhitePieces[7] = {rook, white, LoadPieceTexture("white-rook.png"), 7, 7};
 
     for (int i = 8; i < 16; i++)
-        WhitePieces[i] = {pawn, white, i - 8, 6};
+        WhitePieces[i] = {pawn, white, LoadPieceTexture("white-pawn.png"), i - 8, 6};
 }
 
 void InitBlackPieces()
 {
-    BlackPieces[0] = {rook, black, 0, 0};
-    BlackPieces[1] = {knight, black, 1, 0};
-    BlackPieces[2] = {bishop, black, 2, 0};
-    BlackPieces[3] = {queen, black, 3, 0};
-    BlackPieces[4] = {king, black, 4, 0};
-    BlackPieces[5] = {bishop, black, 5, 0};
-    BlackPieces[6] = {knight, black, 6, 0};
-    BlackPieces[7] = {rook, black, 7, 0};
+    BlackPieces[0] = {rook, black, LoadPieceTexture("black-rook.png"), 0, 0};
+    BlackPieces[1] = {knight, black, LoadPieceTexture("black-knight.png"), 1, 0};
+    BlackPieces[2] = {bishop, black, LoadPieceTexture("black-bishop.png"), 2, 0};
+    BlackPieces[3] = {queen, black, LoadPieceTexture("black-queen.png"), 3, 0};
+    BlackPieces[4] = {king, black, LoadPieceTexture("black-king.png"), 4, 0};
+    BlackPieces[5] = {bishop, black, LoadPieceTexture("black-bishop.png"), 5, 0};
+    BlackPieces[6] = {knight, black, LoadPieceTexture("black-knight.png"), 6, 0};
+    BlackPieces[7] = {rook, black, LoadPieceTexture("black-rook.png"), 7, 0};
 
     for (int i = 8; i < 16; i++)
-        BlackPieces[i] = {pawn, black, i - 8, 1};
+        BlackPieces[i] = {pawn, black, LoadPieceTexture("black-pawn.png"), i - 8, 1};
 }
 
 //  --Draw voids--
@@ -227,29 +229,62 @@ void DrawPieces()
 
     for (int i = 0; i < 16; i++)
     {
+        if (WhitePieces[i].X < 0 || WhitePieces[i].Y < 0 || WhitePieces[i].PieceTexture == nullptr)
+            continue;
+
         float Piece_x = boardLeft + WhitePieces[i].X * TileWidth + TileWidth * 0.5f;
         float Piece_y = boardTop + WhitePieces[i].Y * TileHeight + TileHeight * 0.5f;
 
-        CircleShape piece(TileWidth * 0.35f);
-        piece.setOrigin({TileWidth * 0.35f, TileWidth * 0.35f});
+        Sprite piece(*WhitePieces[i].PieceTexture);
+        Vector2u textureSize = WhitePieces[i].PieceTexture->getSize();
+        piece.setOrigin({textureSize.x * 0.5f, textureSize.y * 0.5f});
+        piece.setScale({(TileWidth * 0.8f) / textureSize.x, (TileHeight * 0.8f) / textureSize.y});
         piece.setPosition({Piece_x, Piece_y});
-        piece.setFillColor(Color::White);
 
         _ChessWindow.draw(piece);
     }
 
     for (int i = 0; i < 16; i++)
     {
+        if (BlackPieces[i].X < 0 || BlackPieces[i].Y < 0 || BlackPieces[i].PieceTexture == nullptr)
+            continue;
+
         float Piece_x = boardLeft + BlackPieces[i].X * TileWidth + TileWidth * 0.5f;
         float Piece_y = boardTop + BlackPieces[i].Y * TileHeight + TileHeight * 0.5f;
 
-        CircleShape piece(TileWidth * 0.35f);
-        piece.setOrigin({TileWidth * 0.35f, TileWidth * 0.35f});
+        Sprite piece(*BlackPieces[i].PieceTexture);
+        Vector2u textureSize = BlackPieces[i].PieceTexture->getSize();
+        piece.setOrigin({textureSize.x * 0.5f, textureSize.y * 0.5f});
+        piece.setScale({(TileWidth * 0.8f) / textureSize.x, (TileHeight * 0.8f) / textureSize.y});
         piece.setPosition({Piece_x, Piece_y});
-        piece.setFillColor(Color::Black);
 
         _ChessWindow.draw(piece);
     }
+}
+
+Texture* LoadPieceTexture(const string& fileName)
+{
+    const string assetDirectories[] = {
+        "Chess/Assets/",
+        "Assets/",
+        "../Assets/",
+        "../../Assets/"
+    };
+
+    for (const string& directory : assetDirectories)
+    {
+        try
+        {
+            return new Texture(directory + fileName);
+        }
+        catch (const exception&)
+        {
+            // Try the next possible assets location.
+        }
+    }
+
+    cerr << "Failed to load texture: " << fileName << endl;
+    return nullptr;
 }
 
 void DrawBoard()
@@ -312,7 +347,7 @@ Pieces GetTileInformation(int BoardX, int BoardY)
             return BlackPieces[i];
     }
 
-    return {pawn, white, -1, -1};
+    return {pawn, white, nullptr, -1, -1};
 }
 
 void GetPossibleMoves(Pieces SelectedPiece)
